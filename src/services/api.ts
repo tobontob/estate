@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { RealEstateTransaction, RealEstateAgent, SearchResult } from '../types';
 
 const SEOUL_API_KEY = process.env.NEXT_PUBLIC_SEOUL_API_KEY;
@@ -38,11 +38,22 @@ interface AgentApiResponse {
 export const realEstateApi = {
   async searchByAddress(address: string): Promise<SearchResult> {
     try {
+      // API 키 확인 로깅
+      console.log('Environment check:', {
+        apiKeyExists: !!SEOUL_API_KEY,
+        apiKeyLength: SEOUL_API_KEY?.length,
+        nodeEnv: process.env.NODE_ENV,
+      });
+
       const currentYear = new Date().getFullYear().toString();
+      
+      // API URL 로깅
+      const transactionUrl = `${BASE_URL}/${SEOUL_API_KEY}/json/tbLnOpendataRtmsV/1/1000/`;
+      console.log('Transaction API URL:', transactionUrl);
       
       // 실거래가 정보 조회 (아파트 실거래가 정보)
       const transactionResponse = await axios.get<TransactionApiResponse>(
-        `${BASE_URL}/${SEOUL_API_KEY}/json/tbLnOpendataRtmsV/1/1000/`,
+        transactionUrl,
         {
           params: {
             RCPT_YR: currentYear,
@@ -61,9 +72,10 @@ export const realEstateApi = {
       }
 
       // 공인중개사 정보 조회
-      const agentResponse = await axios.get<AgentApiResponse>(
-        `${BASE_URL}/${SEOUL_API_KEY}/json/LOCALDATA_072404/1/1000/`
-      );
+      const agentUrl = `${BASE_URL}/${SEOUL_API_KEY}/json/LOCALDATA_072404/1/1000/`;
+      console.log('Agent API URL:', agentUrl);
+      
+      const agentResponse = await axios.get<AgentApiResponse>(agentUrl);
 
       // 공인중개사 API 응답 데이터 상세 로깅
       console.log('=== Agent API Response ===');
@@ -139,12 +151,33 @@ export const realEstateApi = {
         nearbyAgents: agents
       };
     } catch (error) {
-      console.error('Error fetching real estate data:', error);
+      console.error('Error details:', {
+        error: error,
+        message: error instanceof Error ? error.message : String(error),
+        response: error instanceof AxiosError ? error.response?.data : null,
+        status: error instanceof AxiosError ? error.response?.status : null,
+        headers: error instanceof AxiosError ? error.response?.headers : null,
+      });
+      
       if (axios.isAxiosError(error)) {
-        console.error('API Error Response:', error.response?.data);
-        console.error('API Error Config:', error.config);
+        if (error.response) {
+          // 서버가 응답을 반환한 경우
+          console.error('API Error Response:', {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers,
+          });
+        } else if (error.request) {
+          // 요청은 보냈지만 응답을 받지 못한 경우
+          console.error('No response received:', error.request);
+        } else {
+          // 요청 설정 중 오류가 발생한 경우
+          console.error('Error setting up request:', error.message);
+        }
+        console.error('Error config:', error.config);
       }
-      throw new Error('데이터를 불러오는 중 오류가 발생했습니다. 검색어를 확인해주세요.');
+      
+      throw new Error(`데이터를 불러오는 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }; 
