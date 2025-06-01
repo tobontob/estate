@@ -2,7 +2,7 @@ import axios from 'axios';
 import { RealEstateTransaction, RealEstateAgent, SearchResult } from '../types';
 
 const SEOUL_API_KEY = process.env.NEXT_PUBLIC_SEOUL_API_KEY;
-const BASE_URL = 'http://openapi.seoul.go.kr:8088';
+const BASE_URL = '/api/seoul';  // Updated to use proxy
 
 interface TransactionApiResponse {
   tbLnOpendataRtmsV: {
@@ -60,7 +60,7 @@ export const realEstateApi = {
         console.log('First Row Sample:', JSON.stringify(transactionResponse.data.tbLnOpendataRtmsV.row[0], null, 2));
       }
 
-      // 공인중개사 정보 조회 - 전체 데이터를 가져와서 필터링
+      // 공인중개사 정보 조회
       const agentResponse = await axios.get<AgentApiResponse>(
         `${BASE_URL}/${SEOUL_API_KEY}/json/LOCALDATA_072404/1/1000/`
       );
