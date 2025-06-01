@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
-import { RealEstateTransaction, SearchResult } from '../types';
+import { RealEstateTransaction, RealEstateAgent, SearchResult } from '../types';
 
 const SEOUL_API_KEY = process.env.NEXT_PUBLIC_SEOUL_API_KEY;
-const BASE_URL = '/api/seoul';  // API 라우트 경로
+const BASE_URL = '/api/seoul';  // Updated to use proxy
 
 // 캐시 저장소
 const cache: { [key: string]: { data: SearchResult; timestamp: number } } = {};
@@ -24,20 +24,50 @@ interface TransactionApiResponse {
   };
 }
 
+interface AgentApiResponse {
+  LOCALDATA_072404: {
+    row: Array<{
+      TRDSTATEGBN: string;
+      SITEWHLADDR: string;
+      RDNWHLADDR: string;
+      BPLCNM: string;
+      SITETEL: string;
+      UPTAENM: string;
+      X: string;
+      Y: string;
+    }>;
+  };
+}
+
 export const realEstateApi = {
   async searchByAddress(address: string): Promise<SearchResult> {
     try {
       const currentYear = new Date().getFullYear().toString();
       
-      // 실거래가 정보 조회
-      const transactionResponse = await axios.get<TransactionApiResponse>(
-        `${BASE_URL}/json/tbLnOpendataRtmsV/1/1000`,
-        {
-          params: {
-            RCPT_YR: currentYear,
+      // 두 API를 병렬로 호출
+      const [transactionResponse, agentResponse] = await Promise.all([
+        // 실거래가 정보 조회
+        axios.get<TransactionApiResponse>(
+          `${BASE_URL}/${SEOUL_API_KEY}/json/tbLnOpendataRtmsV/1/1000/`,
+          {
+            params: {
+              RCPT_YR: currentYear,
+            }
           }
-        }
-      );
+        ),
+        // 공인중개사 정보 조회
+        axios.get<AgentApiResponse>(
+          `${BASE_URL}/${SEOUL_API_KEY}/json/LOCALDATA_072404/1/1000/`
+        )
+      ]);
+
+      // 공인중개사 API 응답 로깅
+      console.log('Agent API Response:', {
+        status: agentResponse.status,
+        hasData: !!agentResponse.data,
+        rowCount: agentResponse.data?.LOCALDATA_072404?.row?.length || 0,
+        firstRow: agentResponse.data?.LOCALDATA_072404?.row?.[0],
+      });
 
       // 응답 데이터 변환
       let transactions: RealEstateTransaction[] = [];
@@ -60,9 +90,83 @@ export const realEstateApi = {
           .sort((a, b) => b.date.localeCompare(a.date));
       }
 
-      // 결과 객체 생성
-      const result: SearchResult = {
-        transactions
+      let agents: RealEstateAgent[] = [];
+      if (agentResponse.data?.LOCALDATA_072404?.row) {
+        // 검색한 주소에서 구(區) 추출
+        const districtMatch = address.match(/(.*?[구])/);
+        const district = districtMatch ? districtMatch[1] : '';
+        
+        console.log('Searching with:', {
+          address,
+          district,
+          totalAgents: agentResponse.data.LOCALDATA_072404.row.length
+        });
+
+        const filteredAgents = agentResponse.data.LOCALDATA_072404.row
+          .filter((item) => {
+            // 영업중이고 공인중개사인 경우만 필터링
+            const isActive = item.TRDSTATEGBN === '01'; // 영업중
+            
+            // 업종 확인 (부동산중개 관련 업종)
+            const isRealEstateAgent = 
+              item.UPTAENM?.includes('부동산') || 
+              item.UPTAENM?.includes('공인중개사') ||
+              item.UPTAENM?.includes('중개업');
+            
+            // 주소 매칭 (구 단위로 확인)
+            const hasMatchingAddress = 
+              (item.SITEWHLADDR && (
+                item.SITEWHLADDR.includes(address) ||
+                (district && item.SITEWHLADDR.includes(district))
+              )) || 
+              (item.RDNWHLADDR && (
+                item.RDNWHLADDR.includes(address) ||
+                (district && item.RDNWHLADDR.includes(district))
+              ));
+            
+            // 각 필터 조건 로깅
+            const filterResult = {
+              name: item.BPLCNM,
+              status: item.TRDSTATEGBN,
+              type: item.UPTAENM,
+              address: item.SITEWHLADDR || item.RDNWHLADDR,
+              isActive,
+              isRealEstateAgent,
+              hasMatchingAddress
+            };
+            
+            console.log('Agent filter check:', filterResult);
+
+            return isActive && isRealEstateAgent && hasMatchingAddress;
+          });
+
+        console.log('Filtered agents before mapping:', {
+          count: filteredAgents.length,
+          agents: filteredAgents.slice(0, 3) // 처음 3개만 로깅
+        });
+
+        agents = filteredAgents
+          .map((item) => ({
+            officeName: item.BPLCNM || '',
+            address: item.RDNWHLADDR || item.SITEWHLADDR || '',
+            tel: item.SITETEL || '',
+            representative: '', // API에서 제공하지 않음
+            latitude: parseFloat((item.Y || '0').trim()),
+            longitude: parseFloat((item.X || '0').trim())
+          }))
+          .slice(0, 10); // 상위 10개만 표시
+
+        console.log('Final agents result:', {
+          count: agents.length,
+          agents: agents
+        });
+      } else {
+        console.log('No LOCALDATA_072404 data in response');
+      }
+
+      const result = {
+        transactions,
+        nearbyAgents: agents
       };
 
       // 결과 캐싱

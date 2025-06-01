@@ -6,25 +6,24 @@ import { realEstateApi } from '../services/api';
 import SearchResults from '../components/SearchResults';
 
 export default function Home() {
-  const [address, setAddress] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async () => {
-    if (!address.trim()) {
-      setError('주소를 입력해주세요.');
-      return;
-    }
+    if (!searchQuery.trim()) return;
 
     setIsLoading(true);
     setError(null);
+    setSearchResult(null);
 
     try {
-      const result = await realEstateApi.searchByAddress(address);
+      const result = await realEstateApi.searchByAddress(searchQuery);
       setSearchResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '검색 중 오류가 발생했습니다.');
+      setError('검색 중 오류가 발생했습니다. 다시 시도해주세요.');
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -34,12 +33,6 @@ export default function Home() {
     if (e.key === 'Enter') {
       handleSearch();
     }
-  };
-
-  const handleReset = () => {
-    setSearchResult(null);
-    setAddress('');
-    setError(null);
   };
 
   return (
@@ -52,8 +45,8 @@ export default function Home() {
             <div className="w-full max-w-2xl relative">
               <input
                 type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="지역명을 입력하세요 (예: 하계동)"
                 className="w-full p-4 pr-12 text-lg border rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4338CA] focus:border-transparent text-gray-900"
@@ -89,23 +82,12 @@ export default function Home() {
         {searchResult && !isLoading && (
           <div className="py-8 space-y-8">
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">서울 부동산 실거래가 검색</h1>
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 px-4 py-2 text-[#4338CA] hover:bg-[#4338CA10] rounded-lg transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  <span>홈으로</span>
-                </button>
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900">서울 부동산 실거래가 검색</h1>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="지역명을 입력하세요"
                   className="p-2 border rounded-lg text-gray-900"
