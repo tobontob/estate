@@ -60,7 +60,8 @@ export const realEstateApi = {
           .sort((a, b) => b.date.localeCompare(a.date));
       }
 
-      const result = {
+      // 결과 객체 생성
+      const result: SearchResult = {
         transactions
       };
 
