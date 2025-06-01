@@ -59,29 +59,6 @@ const SearchResults: React.FC<SearchResultsProps> = ({ searchResult, isLoading, 
           <p className="text-gray-500">검색된 실거래가 정보가 없습니다.</p>
         )}
       </div>
-
-      <div>
-        <h2 className="text-xl font-bold mb-4">주변 공인중개사</h2>
-        {searchResult.nearbyAgents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {searchResult.nearbyAgents.map((agent, index) => (
-              <div key={index} className="bg-white p-4 border border-gray-300 rounded-lg">
-                <h3 className="font-medium text-lg mb-2">{agent.officeName}</h3>
-                <p className="text-gray-600 text-sm mb-2">{agent.address}</p>
-                {agent.tel && (
-                  <p className="text-blue-600 text-sm">
-                    <a href={`tel:${agent.tel}`} className="hover:underline">
-                      {agent.tel}
-                    </a>
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500">검색된 공인중개사가 없습니다.</p>
-        )}
-      </div>
     </div>
   );
 };

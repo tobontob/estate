@@ -51,5 +51,4 @@ export interface RealEstateAgent {
 
 export interface SearchResult {
   transactions: RealEstateTransaction[];
-  nearbyAgents: RealEstateAgent[];
 } 
