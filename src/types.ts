@@ -45,8 +45,8 @@ export interface RealEstateAgent {
   address: string;
   tel: string;
   representative: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface SearchResult {
