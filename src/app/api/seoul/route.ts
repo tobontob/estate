@@ -1,28 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';  // This is important to tell Next.js this is a dynamic route
+
 export async function GET(request: NextRequest) {
   try {
-    // URL에서 경로 매개변수 추출
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/api/seoul/');
-    if (pathSegments.length < 2) {
+    // Get the search parameters from the request
+    const searchParams = request.nextUrl.searchParams;
+    const apiPath = request.nextUrl.pathname.replace('/api/seoul/', '');
+
+    if (!apiPath) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    const apiPath = pathSegments[1];
-    const searchParams = url.searchParams.toString();
+    // Build the Seoul API URL
+    const seoulApiUrl = new URL(`http://openapi.seoul.go.kr:8088/${process.env.SEOUL_API_KEY}/${apiPath}`);
+    
+    // Append all search parameters
+    searchParams.forEach((value, key) => {
+      seoulApiUrl.searchParams.append(key, value);
+    });
 
-    // 서울시 API 호출
-    const response = await fetch(
-      `http://openapi.seoul.go.kr:8088/${process.env.SEOUL_API_KEY}/${apiPath}${
-        searchParams ? `?${searchParams}` : ''
-      }`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Call the Seoul API
+    const response = await fetch(seoulApiUrl.toString(), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
