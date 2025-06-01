@@ -4,13 +4,44 @@ import { RealEstateTransaction, RealEstateAgent, SearchResult } from '../types';
 const SEOUL_API_KEY = process.env.NEXT_PUBLIC_SEOUL_API_KEY;
 const BASE_URL = 'http://openapi.seoul.go.kr:8088';
 
+interface TransactionApiResponse {
+  tbLnOpendataRtmsV: {
+    row: Array<{
+      THING_AMT: string;
+      ARCH_AREA: string;
+      FLR: string;
+      CTRT_DAY: string;
+      CGG_NM: string;
+      STDG_NM: string;
+      MNO: string;
+      SNO: string;
+      BLDG_NM: string;
+    }>;
+  };
+}
+
+interface AgentApiResponse {
+  LOCALDATA_072404: {
+    row: Array<{
+      TRDSTATEGBN: string;
+      SITEWHLADDR: string;
+      RDNWHLADDR: string;
+      BPLCNM: string;
+      SITETEL: string;
+      UPTAENM: string;
+      X: string;
+      Y: string;
+    }>;
+  };
+}
+
 export const realEstateApi = {
   async searchByAddress(address: string): Promise<SearchResult> {
     try {
       const currentYear = new Date().getFullYear().toString();
       
       // 실거래가 정보 조회 (아파트 실거래가 정보)
-      const transactionResponse = await axios.get(
+      const transactionResponse = await axios.get<TransactionApiResponse>(
         `${BASE_URL}/${SEOUL_API_KEY}/json/tbLnOpendataRtmsV/1/1000/`,
         {
           params: {
@@ -30,7 +61,7 @@ export const realEstateApi = {
       }
 
       // 공인중개사 정보 조회 - 전체 데이터를 가져와서 필터링
-      const agentResponse = await axios.get(
+      const agentResponse = await axios.get<AgentApiResponse>(
         `${BASE_URL}/${SEOUL_API_KEY}/json/LOCALDATA_072404/1/1000/`
       );
 
@@ -48,11 +79,11 @@ export const realEstateApi = {
       let transactions: RealEstateTransaction[] = [];
       if (transactionResponse.data?.tbLnOpendataRtmsV?.row) {
         transactions = transactionResponse.data.tbLnOpendataRtmsV.row
-          .filter((item: any) => {
+          .filter((item) => {
             // 검색한 동과 일치하는 데이터만 필터링
             return item.STDG_NM.includes(address);
           })
-          .map((item: any) => {
+          .map((item) => {
             return {
               price: parseInt(String(item.THING_AMT || '0').replace(/,/g, '')), // 실거래가
               area: parseFloat(item.ARCH_AREA || '0'), // 건축면적
@@ -62,13 +93,13 @@ export const realEstateApi = {
               buildingName: item.BLDG_NM || '' // 건물명
             };
           })
-          .sort((a: RealEstateTransaction, b: RealEstateTransaction) => b.date.localeCompare(a.date));
+          .sort((a, b) => b.date.localeCompare(a.date));
       }
 
       let agents: RealEstateAgent[] = [];
       if (agentResponse.data?.LOCALDATA_072404?.row) {
         agents = agentResponse.data.LOCALDATA_072404.row
-          .filter((item: any) => {
+          .filter((item) => {
             // 영업중이고 공인중개사인 경우만 필터링
             const isActive = item.TRDSTATEGBN === '01'; // 영업중
             const isRealEstateAgent = item.UPTAENM === '부동산중개업' || item.UPTAENM?.includes('공인중개사');
@@ -88,7 +119,7 @@ export const realEstateApi = {
 
             return isActive && isRealEstateAgent && hasMatchingAddress;
           })
-          .map((item: any) => {
+          .map((item) => {
             console.log('Processing agent item:', item);
             return {
               officeName: item.BPLCNM || '',
