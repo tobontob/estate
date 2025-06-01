@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { RealEstateTransaction, SearchResult } from '../types';
 
 const SEOUL_API_KEY = process.env.NEXT_PUBLIC_SEOUL_API_KEY;
-const BASE_URL = '/api/seoul';  // Updated to use proxy
+const BASE_URL = '/api/seoul';  // API 라우트 경로
 
 // 캐시 저장소
 const cache: { [key: string]: { data: SearchResult; timestamp: number } } = {};
@@ -31,7 +31,7 @@ export const realEstateApi = {
       
       // 실거래가 정보 조회
       const transactionResponse = await axios.get<TransactionApiResponse>(
-        `${BASE_URL}/${SEOUL_API_KEY}/json/tbLnOpendataRtmsV/1/1000/`,
+        `${BASE_URL}/json/tbLnOpendataRtmsV/1/1000`,
         {
           params: {
             RCPT_YR: currentYear,
