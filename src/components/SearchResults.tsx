@@ -1,66 +1,61 @@
 'use client';
 
-import React from 'react';
-import { SearchResult } from '../types';
+import React, { useMemo } from 'react';
+import { RealEstateTransaction } from '@/types';
 
 interface SearchResultsProps {
-  searchResult: SearchResult | null;
-  isLoading: boolean;
-  error: string | null;
+  results: RealEstateTransaction[];
 }
 
-const SearchResults: React.FC<SearchResultsProps> = ({ searchResult, isLoading, error }) => {
-  if (isLoading) {
-    return <div className="text-center py-4">검색 중...</div>;
+export default function SearchResults({ results = [] }: SearchResultsProps) {
+  // 검색 결과가 없을 때
+  if (!results || results.length === 0) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="text-center text-gray-500 py-8">
+          검색 결과가 없습니다
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="text-red-500 py-4">{error}</div>;
-  }
-
-  if (!searchResult) {
-    return null;
-  }
+  // 검색 결과를 날짜순으로 정렬
+  const sortedResults = useMemo(() => {
+    return [...results].sort((a, b) => b.date.localeCompare(a.date));
+  }, [results]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold mb-4">실거래가 정보</h2>
-        {searchResult.transactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border border-gray-300">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-4 py-2 border-b">거래일자</th>
-                  <th className="px-4 py-2 border-b">주소</th>
-                  <th className="px-4 py-2 border-b">건물명</th>
-                  <th className="px-4 py-2 border-b">면적(㎡)</th>
-                  <th className="px-4 py-2 border-b">층</th>
-                  <th className="px-4 py-2 border-b">거래금액</th>
-                </tr>
-              </thead>
-              <tbody>
-                {searchResult.transactions.map((transaction, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 border-b text-center">{transaction.date}</td>
-                    <td className="px-4 py-2 border-b">{transaction.address}</td>
-                    <td className="px-4 py-2 border-b">{transaction.buildingName || '-'}</td>
-                    <td className="px-4 py-2 border-b text-right">{transaction.area.toFixed(2)}</td>
-                    <td className="px-4 py-2 border-b text-center">{transaction.floor}</td>
-                    <td className="px-4 py-2 border-b text-right">
-                      {transaction.price.toLocaleString()}만원
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="bg-white rounded-lg shadow">
+        {sortedResults.map((item, index) => (
+          <div
+            key={`${item.address}-${item.date}-${index}`}
+            className="p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-medium">
+                  {item.buildingName || item.address}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {item.buildingName ? item.address : ''}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-blue-600">
+                  {item.price.toLocaleString()}만원
+                </p>
+                <p className="text-sm text-gray-500">
+                  {item.area}㎡ · {item.floor}층
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              거래일: {item.date}
+            </div>
           </div>
-        ) : (
-          <p className="text-gray-500">검색된 실거래가 정보가 없습니다.</p>
-        )}
+        ))}
       </div>
     </div>
   );
-};
-
-export default SearchResults; 
+} 
