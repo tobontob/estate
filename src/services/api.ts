@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { SearchResult, RealEstateTransaction } from '@/types';
+import { mockAptTradeResponse } from '@/mocks/aptTrade';
 
 // API 응답 데이터 타입 정의
 interface AptTradeItem {
@@ -111,6 +112,9 @@ const getCurrentYearMonth = () => {
   return `${year}${month}`;
 };
 
+// 개발 환경인지 확인
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const realEstateApi = {
   async searchByAddress(address: string): Promise<SearchResult> {
     try {
@@ -125,22 +129,42 @@ export const realEstateApi = {
         throw new Error('지원되지 않는 지역입니다.');
       }
 
-      const yearMonth = getCurrentYearMonth();
-      const response = await axios.get('/api/search', {
-        params: { 
-          districtCode,
-          yearMonth
-        },
-        timeout: 10000
-      });
+      let transactions: RealEstateTransaction[];
+
+      if (isDevelopment) {
+        // 개발 환경: 모킹 데이터 사용
+        console.log('개발 환경: 모킹 데이터 사용');
+        transactions = mockAptTradeResponse.response.body.items.item.map(item => ({
+          price: parseInt(item.거래금액.replace(/[^0-9]/g, '')) * 10000,
+          buildYear: item.건축년도 ? parseInt(item.건축년도) : undefined,
+          date: `${item.년}${item.월.padStart(2, '0')}${item.일.padStart(2, '0')}`,
+          area: parseFloat(item.전용면적),
+          floor: parseInt(item.층),
+          address: `${item.법정동} ${item.지번}`,
+          buildingName: item.아파트,
+          dealType: item.거래유형,
+          dong: item.동
+        }));
+      } else {
+        // 프로덕션 환경: 실제 API 호출
+        console.log('프로덕션 환경: 실제 API 호출');
+        const yearMonth = getCurrentYearMonth();
+        const response = await axios.get('/api/search', {
+          params: { 
+            districtCode,
+            yearMonth
+          },
+          timeout: 10000
+        });
+        transactions = response.data.transactions;
+      }
 
       // 동 이름으로 필터링
-      let transactions = response.data.transactions;
       if (dong) {
         transactions = transactions.filter((t: RealEstateTransaction) => t.address.includes(dong));
       }
 
-      return { ...response.data, transactions };
+      return { transactions };
     } catch (error) {
       console.error('Error:', error);
       throw error instanceof Error ? error : new Error('검색 중 오류가 발생했습니다.');
